@@ -51,6 +51,27 @@ jobs:
           cp .config.seed .config
           make defconfig
 
+      - name: Fail fast - requested packages must exist as kconfig symbols
+        run: |
+          REQ="luci luci-app-firewall udpxy luci-app-udpxy tcpdump luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn"
+          missing=""
+          for p in $REQ; do
+            grep -qE "^(CONFIG_PACKAGE_${p}=|# CONFIG_PACKAGE_${p} is not set)" .config || missing="$missing $p"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::以下请求的包在 kconfig 中不存在:$missing"
+            echo "--- 相关可用符号（前 25 个）---"
+            if [ -f tmp/.config-package.in ]; then
+              grep -ohE "PACKAGE_luci-i18n[a-zA-Z0-9_.-]*" tmp/.config-package.in | sed 's/^/  /' | sort -u | head -25
+              echo "--- udpxy 相关 ---"
+              grep -ohE "PACKAGE_[a-z0-9_.-]*udpxy[a-zA-Z0-9_.-]*" tmp/.config-package.in | sed 's/^/  /' | sort -u
+            else
+              echo "tmp/.config-package.in 不存在，无法列出候选符号"
+            fi
+            exit 1
+          fi
+          echo "OK: 所有请求的包均存在于 kconfig"
+
       - name: Preflight - WiFi symbols after defconfig
         run: |
           echo "=== 仍被选中的无线相关符号（应为空）==="
@@ -80,6 +101,13 @@ jobs:
             exit 1
           fi
           echo "PASS: 最终镜像内无任何 WiFi 驱动/固件/hostapd"
+          echo "--- 请求的包是否真的进了镜像 ---"
+          MISS=""
+          for p in luci luci-app-firewall udpxy luci-app-udpxy tcpdump luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn; do
+            awk '{print $1}' "$MAN" | grep -qx "$p" || MISS="$MISS $p"
+          done
+          if [ -n "$MISS" ]; then echo "::error::镜像里缺少这些包:$MISS"; exit 1; fi
+          echo "PASS: 请求的包全部进入镜像"
           {
             echo "## 镜像结果"
             echo "- 包总数: $(wc -l < "$MAN")"
