@@ -1998,7 +1998,7 @@ define Device/jdcloud_re-cp-02
   IMAGE_SIZE := 16000k
   DEVICE_VENDOR := JD-Cloud
   DEVICE_MODEL := RE-CP-02
-  DEVICE_PACKAGES := kmod-mt7915-firmware kmod-mmc-mtk
+  DEVICE_PACKAGES := kmod-mmc-mtk -wpad-basic-mbedtls
 endef
 TARGET_DEVICES += jdcloud_re-cp-02
 
